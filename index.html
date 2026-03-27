@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Med-Sync | Gestión de Enfermería</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body class="bg-slate-50 p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <header class="flex justify-between items-center mb-8 border-b pb-4">
+            <h1 class="text-2xl font-bold text-blue-800 tracking-tight">MED-SYNC PRO</h1>
+            <button onclick="exportarPDF()" id="btn-pdf" class="hidden bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg hover:bg-slate-900 transition-all">📄 Bajar Reporte</button>
+        </header>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <input type="text" id="input-nombre" placeholder="Nombre del Paciente" class="p-2 border rounded-md outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                <input type="number" id="input-edad" placeholder="Edad" class="p-2 border rounded-md outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                <input type="text" id="input-cama" placeholder="Cama / Sala" class="p-2 border rounded-md outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+            </div>
+            <textarea id="input-caso" rows="3" placeholder="Describe el cuadro clínico..." class="w-full p-3 border rounded-md outline-none focus:ring-2 focus:ring-blue-400 text-sm mb-4"></textarea>
+            <button onclick="consultarIA()" id="btn-generar" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md">ANALIZAR CASO CON IA</button>
+        </div>
+
+        <div id="tablero" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-red-50 p-4 rounded-xl border-t-4 border-red-500 min-h-[300px]">
+                <h3 class="text-red-700 font-bold text-xs mb-4">🚨 PRIORIDAD INMEDIATA</h3>
+                <div id="col-prioridad" class="space-y-3"></div>
+            </div>
+            <div class="bg-blue-50 p-4 rounded-xl border-t-4 border-blue-500 min-h-[300px]">
+                <h3 class="text-blue-700 font-bold text-xs mb-4">📋 CUIDADOS CONTINUOS</h3>
+                <div id="col-continuos" class="space-y-3"></div>
+            </div>
+            <div class="bg-green-50 p-4 rounded-xl border-t-4 border-green-500 min-h-[300px]">
+                <h3 class="text-green-700 font-bold text-xs mb-4">🎓 EDUCACIÓN Y ESCALAS</h3>
+                <div id="col-educacion" class="space-y-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function consultarIA() {
+            const caso = document.getElementById('input-caso').value;
+            const btn = document.getElementById('btn-generar');
+            if(!caso) return alert("Describe el caso");
+
+            btn.innerText = "PROCESANDO...";
+            btn.disabled = true;
+
+            try {
+                // LLAMADA A TU SERVIDOR (VERCEL API)
+                const res = await fetch('/api/generar-protocolo', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ casoClinico: caso })
+                });
+
+                const data = await res.json();
+                renderizar(data);
+                document.getElementById('btn-pdf').classList.remove('hidden');
+            } catch (e) {
+                alert("Error de conexión");
+            } finally {
+                btn.innerText = "ANALIZAR CASO CON IA";
+                btn.disabled = false;
+            }
+        }
+
+        function renderizar(data) {
+            const cols = {
+                'col-prioridad': data.prioridad_inmediata,
+                'col-continuos': data.cuidados_continuos,
+                'col-educacion': data.educación_paciente
+            };
+            for(let id in cols) {
+                const el = document.getElementById(id);
+                el.innerHTML = "";
+                cols[id].forEach(txt => {
+                    el.innerHTML += `<div class="bg-white p-3 rounded shadow-sm text-sm border-l-2 border-slate-300 font-medium">${txt}</div>`;
+                });
+            }
+        }
+
+        function exportarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const nombre = document.getElementById('input-nombre').value || "Paciente";
+            doc.setFontSize(20);
+            doc.text("Reporte Med-Sync", 20, 20);
+            doc.setFontSize(12);
+            doc.text(`Paciente: ${nombre} | Cama: ${document.getElementById('input-cama').value}`, 20, 30);
+            doc.line(20, 35, 190, 35);
+            doc.save(`Protocolo_${nombre}.pdf`);
+        }
+    </script>
+</body>
+                                                </html>
+                  
