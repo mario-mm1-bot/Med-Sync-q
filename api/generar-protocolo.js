@@ -1,28 +1,29 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
-  // Manejo de CORS para que Vercel no bloquee la petición
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+  if (req.method !== 'POST') {
+    return res.status(200).send("Servidor activo. Esperando petición POST.");
+  }
 
   const { casoClinico } = req.body;
-  
-  // Usamos la variable de entorno que pusiste en Vercel
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return res.status(500).json({ error: "Falta la API KEY en Vercel" });
+  }
 
   try {
-    const prompt = `Actúa como enfermero experto. Caso: ${casoClinico}. Responde SOLO en JSON: {"resumen_caso":"","prioridad_inmediata":[],"cuidados_continuos":[],"educación_paciente":[]}`;
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `Responde solo en JSON: {"resumen_caso":"...","prioridad_inmediata":[],"cuidados_continuos":[],"educación_paciente":[]}. Caso: ${casoClinico}`;
     
     const result = await model.generateContent(prompt);
-    const text = result.response.text().replace(/```json|```/g, "").trim();
+    const response = await result.response;
+    const text = response.text().replace(/```json|```/g, "").trim();
     
     return res.status(200).json(JSON.parse(text));
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "Error en la IA: " + error.message });
   }
-}
+      }
