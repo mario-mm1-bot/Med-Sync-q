@@ -1,29 +1,24 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(200).send("Servidor activo. Esperando petición POST.");
-  }
-
-  const { casoClinico } = req.body;
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey) {
-    return res.status(500).json({ error: "Falta la API KEY en Vercel" });
-  }
-
+  if (req.method !== 'POST') return res.status(200).send("OK");
+  
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const prompt = `Responde solo en JSON: {"resumen_caso":"...","prioridad_inmediata":[],"cuidados_continuos":[],"educación_paciente":[]}. Caso: ${casoClinico}`;
+    
+    // Un prompt mucho más estricto para que no rompa el formato
+    const prompt = `Eres un sistema médico. Devuelve SOLO un objeto JSON válido. NO uses bloques de código (sin \`\`\`json). Estructura estricta: {"resumen_caso":"...","prioridad_inmediata":[],"cuidados_continuos":[],"educación_paciente":[]}. Caso: ${req.body.casoClinico}`;
     
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text().replace(/```json|```/g, "").trim();
+    let textoVigente = result.response.text();
     
-    return res.status(200).json(JSON.parse(text));
+    // Limpieza extrema por si la IA es terca e incluye markdown
+    textoVigente = textoVigente.replace(/```json/gi, "").replace(/```/g, "").trim();
+    
+    return res.status(200).json(JSON.parse(textoVigente));
   } catch (error) {
-    return res.status(500).json({ error: "Error en la IA: " + error.message });
+    // Si falla, enviamos el error exacto al celular para que lo leas
+    return res.status(500).json({ error: "Fallo en IA: " + error.message });
   }
-      }
+                                 }
